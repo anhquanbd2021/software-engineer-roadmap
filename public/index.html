@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roadmap Tracker</title>
+<style>
+  :root { --bg:#0d1117; --card:#161b22; --ink:#e6edf3; --mut:#8b949e; --acc:#58a6ff; --ok:#3fb950; --lock:#484f58; }
+  * { box-sizing:border-box }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 system-ui,sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:24px; }
+  h1 { font-size:22px; margin:0 0 4px; }
+  .sub { color:var(--mut); margin-bottom:16px; }
+  .bar { background:#21262d; border-radius:8px; height:14px; margin-bottom:20px; overflow:hidden; }
+  .bar > div { height:100%; background:var(--ok); transition:width .3s; }
+  .stage { background:var(--card); border:1px solid #30363d; border-radius:10px; padding:12px 14px; margin-bottom:10px; }
+  .stage.done { border-color:var(--ok); }
+  .stage.avail { border-color:var(--acc); }
+  .stage.locked { opacity:.55; }
+  .stage h3 { margin:0; font-size:15px; display:flex; align-items:center; gap:10px; }
+  .badge { font-size:11px; padding:2px 8px; border-radius:999px; font-weight:600; }
+  .b-done { background:var(--ok); color:#0d1117; }
+  .b-avail { background:var(--acc); color:#0d1117; }
+  .b-lock { background:#21262d; color:var(--mut); }
+  .skills { margin:6px 0 0; color:var(--mut); font-size:13px; }
+  .prereq { font-size:12px; color:var(--mut); margin-top:4px; }
+  button.toggle { margin-top:8px; background:#21262d; color:var(--ink); border:1px solid #30363d; border-radius:6px; padding:4px 12px; font-size:12.5px; cursor:pointer; }
+  .next { background:var(--card); border:1px solid var(--acc); border-radius:10px; padding:12px 14px; margin-bottom:16px; font-size:14px; }
+  .next b { color:var(--acc); }
+  .readiness { color:var(--mut); font-size:13px; margin-top:20px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Roadmap Tracker</h1>
+  <p class="sub">Eleven stages, ordered by dependencies. Check a stage off only when you've used it, can explain it, and can debug it — the article's readiness test.</p>
+  <div class="bar"><div id="fill" style="width:0%"></div></div>
+  <div class="next" id="next">Loading…</div>
+  <div id="stages"></div>
+  <p class="readiness" id="readiness"></p>
+</main>
+<script type="module">
+  const { stages, readiness } = await (await fetch('/api/stages')).json();
+  const done = new Set();
+  const stagesEl = document.getElementById('stages');
+
+  async function render() {
+    const p = await (await fetch('/api/progress?done=' + [...done].join(','))).json();
+    document.getElementById('fill').style.width = p.pct + '%';
+    const names = Object.fromEntries(stages.map(s => [s.id, s.name]));
+    document.getElementById('next').innerHTML = p.next.length
+      ? `Unlocked now: <b>${p.next.map(id => names[id]).join('</b>, <b>')}</b> <span style="color:var(--mut)">(${p.pct}% of the roadmap done)</span>`
+      : p.pct === 100 ? `<b>Roadmap complete.</b> Now iterate: learn → build → hit a limit → return with better questions.` : `Finish what's in progress to unlock the next stage.`;
+    stagesEl.innerHTML = '';
+    for (const s of p.stages) {
+      const d = document.createElement('div');
+      d.className = 'stage ' + s.status;
+      const badge = s.status === 'done' ? '<span class="badge b-done">done</span>' : s.status === 'available' ? '<span class="badge b-avail">available</span>' : '<span class="badge b-lock">locked</span>';
+      d.innerHTML = `<h3>${s.name} ${badge}</h3>` +
+        (s.prereq.length ? `<div class="prereq">needs: ${s.prereq.map(id => names[id]).join(', ')}${s.missing.length ? ` — missing: ${s.missing.map(id => names[id]).join(', ')}` : ''}</div>` : '<div class="prereq">entry point — no prerequisites</div>') +
+        `<div class="skills">${s.skills.join(' · ')}</div>`;
+      if (s.status !== 'locked') {
+        const b = document.createElement('button');
+        b.className = 'toggle';
+        b.textContent = s.status === 'done' ? 'mark not done' : 'mark done';
+        b.onclick = () => { done.has(s.id) ? done.delete(s.id) : done.add(s.id); render(); };
+        d.appendChild(b);
+      }
+      stagesEl.appendChild(d);
+    }
+  }
+  document.getElementById('readiness').textContent = 'A stage counts when you can: ' + readiness.join(' · ') + '.';
+  render();
+</script>
+</body>
+</html>

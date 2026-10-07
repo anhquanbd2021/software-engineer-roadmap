@@ -1,0 +1,15 @@
+{
+  "name": "software-engineer-roadmap-demo",
+  "version": "1.0.0",
+  "description": "Companion demo: the eleven-stage roadmap as a dependency graph — check stages off, watch what unlocks next.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node app/server.js",
+    "test": "node --test \"test/*.test.mjs\"",
+    "check": "npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
